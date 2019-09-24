@@ -16,77 +16,82 @@ using Microsoft.Extensions.FileProviders;
 
 namespace MainApp
 {
-    public class Startup
-    {
-        public Startup(IConfiguration configuration)
-        {
-            Configuration = configuration;
-        }
+	public class Startup
+	{
+		public Startup(IConfiguration configuration)
+		{
+			Configuration = configuration;
+		}
 
-        public IConfiguration Configuration { get; }
+		public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
-        public void ConfigureServices(IServiceCollection services)
-        {
-            services.Configure<CookiePolicyOptions>(options =>
-            {
-                // This lambda determines whether user consent for non-essential cookies is needed for a given request.
-                options.CheckConsentNeeded = context => true;
-                options.MinimumSameSitePolicy = SameSiteMode.None;
-            });
+		// This method gets called by the runtime. Use this method to add services to the container.
+		public void ConfigureServices(IServiceCollection services)
+		{
+			services.Configure<CookiePolicyOptions>(options =>
+			{
+				// This lambda determines whether user consent for non-essential cookies is needed for a given request.
+				options.CheckConsentNeeded = context => true;
+				options.MinimumSameSitePolicy = SameSiteMode.None;
+			});
 
-            var mvcBuilder = services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
-            ConfigurePlugin(mvcBuilder.PartManager);
-        }
+			services.AddRouting();
+			services.AddControllersWithViews().AddRazorRuntimeCompilation();
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
-        {
-            if (env.IsDevelopment())
-            {
-                app.UseDeveloperExceptionPage();
-            }
-            else
-            {
-                app.UseExceptionHandler("/Home/Error");
-            }
+			//			services.addr
+			var mvcBuilder = services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+			ConfigurePlugin(mvcBuilder.PartManager);
+		}
 
-            var staticFileOptions = new StaticFileOptions();
-            var fileProvider = new IFileProvider[]
-            {
-                env.ContentRootFileProvider,
-                new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "PluginApp", "wwwroot")),
-            };
-            app.UseStaticFiles(new StaticFileOptions { FileProvider = new CompositeFileProvider(fileProvider) });
-            app.UseCookiePolicy();
+		// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+		public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+		{
+			if (env.IsDevelopment())
+			{
+				app.UseDeveloperExceptionPage();
+			}
+			else
+			{
+				app.UseExceptionHandler("/Home/Error");
+			}
 
-            app.UseMvc(routes =>
-            {
-                routes.MapRoute(
-                    name: "default",
-                    template: "{controller=Home}/{action=Index}/{id?}");
-            });
-        }
+			var staticFileOptions = new StaticFileOptions();
+			var fileProvider = new IFileProvider[]
+			{
+				env.ContentRootFileProvider,
+				new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "PluginApp", "wwwroot")),
+			};
+			app.UseStaticFiles(new StaticFileOptions { FileProvider = new CompositeFileProvider(fileProvider) });
+			app.UseCookiePolicy();
 
-        private void ConfigurePlugin(ApplicationPartManager applicationPartManager)
-        {
-            var pluginAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(Directory.GetCurrentDirectory(), "PluginApp", "PluginApp.dll"));
-            var partFactory = ApplicationPartFactory.GetApplicationPartFactory(pluginAssembly);
+			app.UseRouting();
+			app.UseEndpoints(options =>
+			{
+				options.MapControllerRoute(
+					name: "default",
+					pattern: "{controller=Home}/{action=Index}/{id?}");
+			});
+		}
 
-            foreach (var part in partFactory.GetApplicationParts(pluginAssembly))
-            {
-                applicationPartManager.ApplicationParts.Add(part);
-            }
+		private void ConfigurePlugin(ApplicationPartManager applicationPartManager)
+		{
+			var pluginAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(Directory.GetCurrentDirectory(), "PluginApp", "PluginApp.dll"));
+			var partFactory = ApplicationPartFactory.GetApplicationPartFactory(pluginAssembly);
 
-            var relatedAssemblies = RelatedAssemblyAttribute.GetRelatedAssemblies(pluginAssembly, throwOnError: true);
-            foreach (var assembly in relatedAssemblies)
-            {
-                partFactory = ApplicationPartFactory.GetApplicationPartFactory(assembly);
-                foreach (var part in partFactory.GetApplicationParts(assembly))
-                {
-                    applicationPartManager.ApplicationParts.Add(part);
-                }
-            }
-        }
-    }
+			foreach (var part in partFactory.GetApplicationParts(pluginAssembly))
+			{
+				applicationPartManager.ApplicationParts.Add(part);
+			}
+
+			var relatedAssemblies = RelatedAssemblyAttribute.GetRelatedAssemblies(pluginAssembly, throwOnError: true);
+			foreach (var assembly in relatedAssemblies)
+			{
+				partFactory = ApplicationPartFactory.GetApplicationPartFactory(assembly);
+				foreach (var part in partFactory.GetApplicationParts(assembly))
+				{
+					applicationPartManager.ApplicationParts.Add(part);
+				}
+			}
+		}
+	}
 }
